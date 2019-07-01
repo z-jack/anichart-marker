@@ -1,33 +1,74 @@
-.App {
+@import '~jsoneditor-react/es/editor.min.css';
+@import '~antd/dist/antd.css';
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: row;
+}
+
+#app>div {
+  width: 50%;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+#app>div:last-child {
+  border-left: 1px solid #808080;
+}
+
+.json-editor {
+  height: 100%;
+  margin-top: 8px;
+  min-height: 0;
+}
+
+.json-editor>div {
+  height: 100%;
+}
+
+.dataset {
+  margin-top: 8px;
+  max-height: 200px;
+  flex-shrink: 0;
+  overflow: auto;
+  border: 1px solid #dcdee2;
+}
+
+.dataset table {
+  border-collapse: collapse;
   text-align: center;
 }
 
-.App-logo {
-  animation: App-logo-spin infinite 20s linear;
-  height: 40vmin;
-  pointer-events: none;
+.dataset tbody {
+  position: sticky;
+  top: 0;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+.dataset th,
+.dataset td {
+  border: 1px solid #dcdee2;
+  padding: 4px;
 }
 
-.App-link {
-  color: #61dafb;
+.dataset th,
+.dataset tr:nth-child(2n) {
+  height: 48px;
+  background: #f8f8f9;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.hint {
+  text-align: center;
+  padding: 8px;
+}
+
+.svg-container {
+  flex-grow: 1;
+}
+
+.svg-container svg {
+  width: 100%;
+  height: 100%;
 }
