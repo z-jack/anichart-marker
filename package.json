@@ -21,7 +21,8 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "postinstall": "cd ./node_modules/charticulator/ && cp config.template.yml config.yml && yarn build && cd ../../"
+    "postinstall": "cd ./node_modules/charticulator/ && cp config.template.yml config.yml && yarn build && cd ../../",
+    "refresh": "yarn upgrade charticulator && yarn postinstall"
   },
   "devDependencies": {
     "@types/chai": "^4.0.1",
