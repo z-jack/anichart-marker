@@ -1,9 +1,11 @@
 import { renderChartToLocalString } from 'charticulator/dist/scripts/app/views/canvas/chart_display'
+import { ChartStateManager } from 'charticulator/dist/scripts/core/prototypes/state'
 import { Button, Upload, Icon } from 'antd'
 import csv from 'csvtojson'
 import React from 'react'
 import ace from 'brace'
 import './App.css'
+
 
 const { JsonEditor } = require('jsoneditor-react')
 const { Dragger } = Upload;
@@ -12,10 +14,37 @@ const App: React.FC = () => {
   const [json, _setJson] = React.useState<object>({})
   const [mode, setMode] = React.useState<string | boolean>(false)
   const [dataColumns, setDataColumns] = React.useState<string[]>([])
-  const [dataTable, setDataTable] = React.useState<object[]>([])
+  const [dataTable, _setDataTable] = React.useState<object[]>([])
   const [svgHtml, setSvgHtml] = React.useState('')
   let editor: any = null
   const editorRef = (i: any) => editor = i || editor
+
+  const tryRenderTmplt = (m: (string | boolean), j: any, d: object[]) => {
+    if (m !== 'tmplt' || !d.length || !j) {
+      return
+    }
+    setSvgHtml('')
+    const dataset = {
+      name: 'demo',
+      tables: j.tables.map((table: any) => {
+        return {
+          rows: d,
+          ...table
+        }
+      })
+    }
+    try {
+      const stateManager = new ChartStateManager(j.specification, dataset, null, j.defaultAttributes)
+      stateManager.solveConstraints()
+      renderChartToLocalString(dataset, j.specification, stateManager.chartState).then(v => setSvgHtml(v))
+    } catch {
+    }
+  }
+
+  const setDataTable = (v: any) => {
+    tryRenderTmplt(mode, json, v)
+    _setDataTable(v)
+  }
 
   const setJson = (v: any, f = true) => {
     if (v.state && v.name) {
@@ -23,6 +52,7 @@ const App: React.FC = () => {
       renderChartToLocalString(v.state.dataset, v.state.chart, v.state.chartState).then(v => setSvgHtml(v))
     } else if (v.specification && v.defaultAttributes && v.tables && v.inference && v.properties) {
       setMode('tmplt')
+      tryRenderTmplt('tmplt', v, dataTable)
     } else
       setMode(false)
     f && editor.jsonEditor.set(v)
@@ -37,7 +67,7 @@ const App: React.FC = () => {
     accept: '.chart,.tmplt,.csv',
     action: '/',
     showUploadList: false,
-    beforeUpload (e: File) {
+    beforeUpload(e: File) {
       let reader = new FileReader()
       reader.onload = () => {
         if (e.name.endsWith('.chart') || e.name.endsWith('.tmplt')) {
@@ -53,7 +83,7 @@ const App: React.FC = () => {
     }
   };
 
-  function download () {
+  function download() {
     var element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(svgHtml));
     element.setAttribute('download', 'output.svg');
