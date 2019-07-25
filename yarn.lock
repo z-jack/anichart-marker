@@ -2862,7 +2862,7 @@ chardet@^0.7.0:
 
 charticulator@z-jack/charticulator-marker-core:
   version "1.4.0"
-  resolved "https://codeload.github.com/z-jack/charticulator-marker-core/tar.gz/2aa9a199eba6fd6f1b4c0480aca32d0da1eb6179"
+  resolved "https://codeload.github.com/z-jack/charticulator-marker-core/tar.gz/fd99a187a4a6bc59260307530741ff63a5193b75"
   dependencies:
     d3-dsv "^1.0.8"
     d3-force "^1.1.0"

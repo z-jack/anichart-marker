@@ -66,6 +66,7 @@
 
 .svg-container {
   flex-grow: 1;
+  min-height: 0;
 }
 
 .svg-container svg {

@@ -1,8 +1,8 @@
 import { renderChartToLocalString } from 'charticulator/dist/scripts/app/views/canvas/chart_display'
 import { ChartStateManager } from 'charticulator/dist/scripts/core/prototypes/state'
-import { Button, Upload, Icon } from 'antd'
+import { Button, Upload, Icon, Switch, InputNumber } from 'antd'
 import csv from 'csvtojson'
-import React from 'react'
+import React, { useEffect } from 'react'
 import ace from 'brace'
 import './App.css'
 
@@ -16,6 +16,9 @@ const App: React.FC = () => {
   const [dataColumns, setDataColumns] = React.useState<string[]>([])
   const [dataTable, _setDataTable] = React.useState<object[]>([])
   const [svgHtml, setSvgHtml] = React.useState('')
+  const [resize, setResize] = React.useState(false)
+  const [chartWidth, setWidth] = React.useState(500)
+  const [chartHeight, setHeight] = React.useState(500)
   let editor: any = null
   const editorRef = (i: any) => editor = i || editor
 
@@ -46,10 +49,31 @@ const App: React.FC = () => {
     _setDataTable(v)
   }
 
+  useEffect(() => {
+    setJson(json, false)
+  }, [resize, chartWidth, chartHeight])
+
   const setJson = (v: any, f = true) => {
     if (v.state && v.name) {
       setMode('chart')
-      renderChartToLocalString(v.state.dataset, v.state.chart, v.state.chartState).then(v => setSvgHtml(v))
+      const tmp = JSON.parse(JSON.stringify(v))
+      if (resize) {
+        tmp.state.chart.mappings = {
+          ...tmp.state.chart.mappings,
+          width: {
+            type: 'value',
+            value: chartWidth
+          },
+          height: {
+            type: 'value',
+            value: chartHeight
+          }
+        }
+        const stateManager = new ChartStateManager(tmp.state.chart, tmp.state.dataset, tmp.state.chartState)
+        stateManager.solveConstraints()
+        renderChartToLocalString(stateManager.dataset, stateManager.chart, stateManager.chartState).then(v => setSvgHtml(v))
+      } else
+        renderChartToLocalString(v.state.dataset, v.state.chart, v.state.chartState).then(v => setSvgHtml(v))
     } else if (v.specification && v.defaultAttributes && v.tables && v.inference && v.properties) {
       setMode('tmplt')
       tryRenderTmplt('tmplt', v, dataTable)
@@ -131,6 +155,13 @@ const App: React.FC = () => {
       </div>
       <div>
         <Button disabled={!svgHtml} type="primary" icon="download" onClick={download}>Download</Button>
+        <div>
+          <Switch onChange={setResize} />
+          <span>Resize Chart to</span>
+          <InputNumber defaultValue={500} onChange={setWidth} size="small" />
+          <span>&times;</span>
+          <InputNumber defaultValue={500} onChange={setHeight} size="small" />
+        </div>
         <div className="svg-container" dangerouslySetInnerHTML={{ __html: svgHtml }}></div>
       </div>
     </div>
