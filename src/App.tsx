@@ -4,6 +4,7 @@ import { Button, Upload, Icon, Switch, InputNumber } from 'antd'
 import csv from 'csvtojson'
 import React, { useEffect } from 'react'
 import ace from 'brace'
+import * as vega from './vega'
 import './App.css'
 
 
@@ -77,6 +78,10 @@ const App: React.FC = () => {
     } else if (v.specification && v.defaultAttributes && v.tables && v.inference && v.properties) {
       setMode('tmplt')
       tryRenderTmplt('tmplt', v, dataTable)
+    } else if ((v.$schema || '').includes('vega.github.io/schema')) {
+      setMode('vega')
+      const view: any = new vega.View(vega.parse(v), { renderer: 'none' })
+      view.toSVG().then((v: string) => setSvgHtml(v))
     } else
       setMode(false)
     f && editor.jsonEditor.set(v)
@@ -91,7 +96,7 @@ const App: React.FC = () => {
     accept: '.chart,.tmplt,.csv',
     action: '/',
     showUploadList: false,
-    beforeUpload(e: File) {
+    beforeUpload (e: File) {
       let reader = new FileReader()
       reader.onload = () => {
         if (e.name.endsWith('.chart') || e.name.endsWith('.tmplt')) {
@@ -99,7 +104,9 @@ const App: React.FC = () => {
             setJson(JSON.parse(reader.result as string))
           } catch{ }
         } else if (e.name.endsWith('.csv')) {
-          csv().fromString(reader.result as string).on('header', e => setDataColumns(e)).then(e => setDataTable(e))
+          csv({
+            checkType: true
+          }).fromString(reader.result as string).on('header', e => setDataColumns(e)).then(e => setDataTable(e))
         }
       }
       reader.readAsText(e)
@@ -107,10 +114,10 @@ const App: React.FC = () => {
     }
   };
 
-  function download() {
+  function download () {
     var element = document.createElement('a');
     element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(svgHtml));
-    element.setAttribute('download', 'output.svg');
+    element.setAttribute('download', 'output.dsvg');
 
     element.style.display = 'none';
     document.body.appendChild(element);
@@ -133,7 +140,7 @@ const App: React.FC = () => {
           <JsonEditor ref={editorRef} mode='code' allowedModes={['code', 'tree']} ace={ace} value={json} onChange={editorSetJson}></JsonEditor>
         </div>
         {
-          mode !== 'chart' &&
+          mode !== 'chart' && mode !== 'vega' &&
           <div className="dataset">
             {
               dataColumns.length ?
@@ -155,13 +162,16 @@ const App: React.FC = () => {
       </div>
       <div>
         <Button disabled={!svgHtml} type="primary" icon="download" onClick={download}>Download</Button>
-        <div>
-          <Switch onChange={setResize} />
-          <span>Resize Chart to</span>
-          <InputNumber defaultValue={500} onChange={setWidth} size="small" />
-          <span>&times;</span>
-          <InputNumber defaultValue={500} onChange={setHeight} size="small" />
-        </div>
+        {
+          mode !== 'vega' &&
+          <div>
+            <Switch onChange={setResize} />
+            <span>Resize Chart to</span>
+            <InputNumber defaultValue={500} onChange={setWidth} size="small" />
+            <span>&times;</span>
+            <InputNumber defaultValue={500} onChange={setHeight} size="small" />
+          </div>
+        }
         <div className="svg-container" dangerouslySetInnerHTML={{ __html: svgHtml }}></div>
       </div>
     </div>
