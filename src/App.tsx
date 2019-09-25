@@ -96,7 +96,7 @@ const App: React.FC = () => {
     accept: '.chart,.tmplt,.csv',
     action: '/',
     showUploadList: false,
-    beforeUpload (e: File) {
+    beforeUpload(e: File) {
       let reader = new FileReader()
       reader.onload = () => {
         if (e.name.endsWith('.chart') || e.name.endsWith('.tmplt')) {
@@ -114,17 +114,19 @@ const App: React.FC = () => {
     }
   };
 
-  function download () {
-    var element = document.createElement('a');
-    element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(svgHtml));
-    element.setAttribute('download', 'output.dsvg');
-
-    element.style.display = 'none';
-    document.body.appendChild(element);
-
-    element.click();
-
-    document.body.removeChild(element);
+  function download() {
+    var blob = new Blob([svgHtml], {type: 'text/plain'});
+    if(window.navigator.msSaveOrOpenBlob) {
+        window.navigator.msSaveBlob(blob, 'output.dsvg');
+    }
+    else{
+        var elem = window.document.createElement('a');
+        elem.href = window.URL.createObjectURL(blob);
+        elem.download = 'output.dsvg';        
+        document.body.appendChild(elem);
+        elem.click();        
+        document.body.removeChild(elem);
+    }
   }
 
   return (

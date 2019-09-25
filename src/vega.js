@@ -9265,10 +9265,13 @@ function transformItem(item) {
 }
 
 let markArray = [];
-let idCount = 0;
 
-function getMarkId() {
-    return 'mark' + idCount++
+let idCount = {};
+function getMarkId(namespace) {
+    if(idCount[namespace] === undefined){
+        idCount[namespace] = Object.keys(idCount).length * 1000;
+    }
+    return 'mark' + idCount[namespace]++
 }
 
 function getMarkClass(mark) {
@@ -9283,7 +9286,7 @@ function getMarkClass(mark) {
 
 function reset() {
     markArray = [];
-    idCount = 0;
+    idCount = {};
 }
 
 var id$1 = {
@@ -9298,7 +9301,7 @@ function markItemPath (type, shape, isect) {
     emit('transform', transformItem(item));
     emit('d', shape(null, item));
     if (item.mark.role.startsWith('mark')) {
-      emit('id', id$1.getMarkId());
+      emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
       emit('class', `mark ${id$1.getMarkClass(item.mark)} path`);
       emit('data-datum', JSON.stringify({
         _TYPE: 'path',
@@ -9405,7 +9408,7 @@ function markMultiItemPath (type, shape, tip) {
     var items = item.mark.items;
     if (items.length) {
       emit('d', shape(null, items));
-      emit('id', id$1.getMarkId());
+      emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
       emit('class', `mark ${id$1.getMarkClass(item.mark)} path`);
       emit('data-datum', JSON.stringify(items.map(i => {
         return {
@@ -9677,7 +9680,7 @@ function attr$1(emit, item, renderer) {
   emit('height', h);
   emit('preserveAspectRatio', a);
   if (item.mark.role.startsWith('mark')) {
-    emit('id', id$1.getMarkId());
+    emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
     emit('class', `mark ${id$1.getMarkClass(item.mark)} image`);
     emit('data-datum', JSON.stringify({
       _TYPE: 'image',
@@ -9761,7 +9764,7 @@ function attr$2(emit, item) {
   emit('transform', translateItem(item));
   emit('d', item.path);
   if (item.mark.role.startsWith('mark')) {
-    emit('id', id$1.getMarkId());
+    emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
     emit('class', `mark ${id$1.getMarkClass(item.mark)} path`);
     emit('data-datum', JSON.stringify({
       _TYPE: 'path',
@@ -9804,7 +9807,7 @@ var path$1 = {
 function attr$3(emit, item) {
   emit('d', rectangle(null, item));
   if (item.mark.role.startsWith('mark')) {
-    emit('id', id$1.getMarkId());
+    emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
     emit('class', `mark ${id$1.getMarkClass(item.mark)} rectangle`);
     emit('data-datum', JSON.stringify({
       _TYPE: 'rectangle',
@@ -9844,10 +9847,10 @@ var rect = {
 
 function attr$4(emit, item) {
   emit('transform', translateItem(item));
-  emit('x2', item.x2 != null ? item.x2 - (item.x || 0) : 0);
-  emit('y2', item.y2 != null ? item.y2 - (item.y || 0) : 0);
+  emit('x2', item.x2 != null ? item.x2 + Math.random() / 1e2 - (item.x || 0) : Math.random() / 1e2);
+  emit('y2', item.y2 != null ? item.y2 + Math.random() / 1e2 - (item.y || 0) : Math.random() / 1e2);
   if (item.mark.role.startsWith('mark')) {
-    emit('id', id$1.getMarkId());
+    emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
     emit('class', `mark ${id$1.getMarkClass(item.mark)} rule`);
     emit('data-datum', JSON.stringify({
       _TYPE: 'rule',
@@ -10075,7 +10078,7 @@ function attr$5(emit, item) {
   }
   emit('transform', t);
   if (item.mark.role.startsWith('mark')) {
-    emit('id', id$1.getMarkId());
+    emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
     emit('class', `mark ${id$1.getMarkClass(item.mark)} text`);
     emit('data-datum', JSON.stringify({
       _TYPE: 'text',
@@ -10375,7 +10378,8 @@ function cssClass(mark) {
   return 'mark-' + mark.marktype
     + (mark.role ? ' role-' + mark.role : '')
     + (mark.name ? ' ' + mark.name : '')
-    + (mark.role != 'mark'? ' ' + mark.role : '');
+    + (mark.role != 'mark'? ' ' + mark.role : '')
+    + (mark.role.startsWith('axis-') || mark.role.startsWith('legend-') ? ' mark': '');
 }
 
 function point(event, el) {
@@ -18744,9 +18748,6 @@ prototype$N.draw = function (el, scene, prev) {
     console.log(scene.source);
   }
   parent.setAttribute('class', cssClass(scene));
-  if (!isGroup) {
-    parent.style.setProperty('pointer-events', events);
-  }
   if (scene.clip) {
     parent.setAttribute('clip-path', clip(renderer, scene, scene.group));
   } else {
@@ -18851,7 +18852,7 @@ var mark_extras = {
 
     var value = item.mark.interactive === false ? 'none' : null;
     if (value !== values.events) {
-      element.style.setProperty('pointer-events', value);
+      // element.style.setProperty('pointer-events', value);
       values.events = value;
     }
   },
@@ -18964,7 +18965,7 @@ function href () {
       : loc.href;
 }
 
-function SVGStringRenderer (loader) {
+function SVGStringRenderer(loader) {
   Renderer.call(this, loader);
 
   this._text = {
@@ -19132,7 +19133,7 @@ prototype$O.buildDefs = function () {
 
 var object;
 
-function emit$1 (name, value, ns, prefixed) {
+function emit$1(name, value, ns, prefixed) {
   object[prefixed || name] = value;
 }
 
@@ -19172,7 +19173,8 @@ prototype$O.mark = function (scene) {
     style;
 
   if (tag !== 'g' && scene.interactive === false) {
-    style = 'style="pointer-events: none;"';
+    // style = 'style="pointer-events: none;"';
+    style = '';
   }
 
   // render opening group tag
@@ -19196,13 +19198,18 @@ prototype$O.mark = function (scene) {
     'data-datum': datum
   }, style);
 
+  var forceId = false;
+  if (scene.role.startsWith('axis-') || scene.role.startsWith('legend-')) {
+    forceId = scene.role;
+  }
+
   // render contained elements
-  function process (item) {
+  function process(item) {
     var href = renderer.href(item);
     if (href) str += openTag('a', href);
 
     style = (tag !== 'g') ? applyStyles(item, scene, tag, defs) : null;
-    str += openTag(tag, renderer.attributes(mdef.attr, item), style);
+    str += openTag(tag, { id: forceId ? id$1.getMarkId(forceId) : '', ...renderer.attributes(mdef.attr, item) }, style);
 
     if (tag === 'text') {
       str += escape_text(textValue(item));
@@ -19225,6 +19232,8 @@ prototype$O.mark = function (scene) {
     visit(scene, process);
   }
 
+  forceId = false;
+
   // render closing group tag
   return str + closeTag('g');
 };
@@ -19240,13 +19249,11 @@ prototype$O.markGroup = function (scene) {
   return str;
 };
 
-function applyStyles (o, mark, tag, defs) {
+function applyStyles(o, mark, tag, defs) {
   if (o == null) return '';
   var i, n, prop, name, value, s = '';
 
-  if (tag === 'bgrect' && mark.interactive === false) {
-    s += 'pointer-events: none; ';
-  }
+  if (tag === 'bgrect' && mark.interactive === false) ;
 
   if (tag === 'text') {
     s += 'font-family: ' + fontFamily(o) + '; ';
@@ -19279,7 +19286,7 @@ function applyStyles (o, mark, tag, defs) {
   return s ? 'style="' + s.trim() + '"' : null;
 }
 
-function escape_text (s) {
+function escape_text(s) {
   return s.replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -21376,27 +21383,31 @@ function sourceY(t) { return t.source.y; }
 function targetX(t) { return t.target.x; }
 function targetY(t) { return t.target.y; }
 
- /**
-  * Layout paths linking source and target elements.
-  * @constructor
-  * @param {object} params - The parameters for this operator.
-  */
+/**
+ * Layout paths linking source and target elements.
+ * @constructor
+ * @param {object} params - The parameters for this operator.
+ */
 function LinkPath(params) {
   Transform.call(this, {}, params);
 }
 
 LinkPath.Definition = {
   "type": "LinkPath",
-  "metadata": {"modifies": true},
+  "metadata": { "modifies": true },
   "params": [
     { "name": "sourceX", "type": "field", "default": "source.x" },
     { "name": "sourceY", "type": "field", "default": "source.y" },
     { "name": "targetX", "type": "field", "default": "target.x" },
     { "name": "targetY", "type": "field", "default": "target.y" },
-    { "name": "orient", "type": "enum", "default": "vertical",
-      "values": ["horizontal", "vertical", "radial"] },
-    { "name": "shape", "type": "enum", "default": "line",
-      "values": ["line", "arc", "curve", "diagonal", "orthogonal"] },
+    {
+      "name": "orient", "type": "enum", "default": "vertical",
+      "values": ["horizontal", "vertical", "radial"]
+    },
+    {
+      "name": "shape", "type": "enum", "default": "line",
+      "values": ["line", "arc", "curve", "diagonal", "orthogonal"]
+    },
     { "name": "require", "type": "signal" },
     { "name": "as", "type": "string", "default": "path" }
   ]
@@ -21404,22 +21415,22 @@ LinkPath.Definition = {
 
 var prototype$Z = inherits(LinkPath, Transform);
 
-prototype$Z.transform = function(_, pulse) {
+prototype$Z.transform = function (_, pulse) {
   var sx = _.sourceX || sourceX,
-      sy = _.sourceY || sourceY,
-      tx = _.targetX || targetX,
-      ty = _.targetY || targetY,
-      as = _.as || 'path',
-      orient = _.orient || 'vertical',
-      shape = _.shape || 'line',
-      path = Paths.get(shape + '-' + orient) || Paths.get(shape);
+    sy = _.sourceY || sourceY,
+    tx = _.targetX || targetX,
+    ty = _.targetY || targetY,
+    as = _.as || 'path',
+    orient = _.orient || 'vertical',
+    shape = _.shape || 'line',
+    path = Paths.get(shape + '-' + orient) || Paths.get(shape);
 
   if (!path) {
     error('LinkPath unsupported type: ' + _.shape
       + (_.orient ? '-' + _.orient : ''));
   }
 
-  pulse.visit(pulse.SOURCE, function(t) {
+  pulse.visit(pulse.SOURCE, function (t) {
     t[as] = path(sx(t), sy(t), tx(t), ty(t));
   });
 
@@ -21429,8 +21440,8 @@ prototype$Z.transform = function(_, pulse) {
 // -- Link Path Generation Methods -----
 
 function line$2(sx, sy, tx, ty) {
-  return 'M' + sx + ',' + sy +
-         'L' + tx + ',' + ty;
+  return 'M' + (sx + Math.random() / 1e2) + ',' + (sy + Math.random() / 1e2) +
+    'L' + (tx + Math.random() / 1e2) + ',' + (ty + Math.random() / 1e2);
 }
 
 function lineR(sa, sr, ta, tr) {
@@ -21442,13 +21453,13 @@ function lineR(sa, sr, ta, tr) {
 
 function arc$2(sx, sy, tx, ty) {
   var dx = tx - sx,
-      dy = ty - sy,
-      rr = Math.sqrt(dx * dx + dy * dy) / 2,
-      ra = 180 * Math.atan2(dy, dx) / Math.PI;
+    dy = ty - sy,
+    rr = Math.sqrt(dx * dx + dy * dy) / 2,
+    ra = 180 * Math.atan2(dy, dx) / Math.PI;
   return 'M' + sx + ',' + sy +
-         'A' + rr + ',' + rr +
-         ' ' + ra + ' 0 1' +
-         ' ' + tx + ',' + ty;
+    'A' + rr + ',' + rr +
+    ' ' + ra + ' 0 1' +
+    ' ' + tx + ',' + ty;
 }
 
 function arcR(sa, sr, ta, tr) {
@@ -21460,13 +21471,13 @@ function arcR(sa, sr, ta, tr) {
 
 function curve(sx, sy, tx, ty) {
   var dx = tx - sx,
-      dy = ty - sy,
-      ix = 0.2 * (dx + dy),
-      iy = 0.2 * (dy - dx);
+    dy = ty - sy,
+    ix = 0.2 * (dx + dy),
+    iy = 0.2 * (dy - dx);
   return 'M' + sx + ',' + sy +
-         'C' + (sx+ix) + ',' + (sy+iy) +
-         ' ' + (tx+iy) + ',' + (ty-ix) +
-         ' ' + tx + ',' + ty;
+    'C' + (sx + ix) + ',' + (sy + iy) +
+    ' ' + (tx + iy) + ',' + (ty - ix) +
+    ' ' + tx + ',' + ty;
 }
 
 function curveR(sa, sr, ta, tr) {
@@ -21478,52 +21489,52 @@ function curveR(sa, sr, ta, tr) {
 
 function orthoX(sx, sy, tx, ty) {
   return 'M' + sx + ',' + sy +
-         'V' + ty + 'H' + tx;
+    'V' + ty + 'H' + tx;
 }
 
 function orthoY(sx, sy, tx, ty) {
   return 'M' + sx + ',' + sy +
-         'H' + tx + 'V' + ty;
+    'H' + tx + 'V' + ty;
 }
 
 function orthoR(sa, sr, ta, tr) {
   var sc = Math.cos(sa),
-      ss = Math.sin(sa),
-      tc = Math.cos(ta),
-      ts = Math.sin(ta),
-      sf = Math.abs(ta - sa) > Math.PI ? ta <= sa : ta > sa;
-  return 'M' + (sr*sc) + ',' + (sr*ss) +
-         'A' + sr + ',' + sr + ' 0 0,' + (sf?1:0) +
-         ' ' + (sr*tc) + ',' + (sr*ts) +
-         'L' + (tr*tc) + ',' + (tr*ts);
+    ss = Math.sin(sa),
+    tc = Math.cos(ta),
+    ts = Math.sin(ta),
+    sf = Math.abs(ta - sa) > Math.PI ? ta <= sa : ta > sa;
+  return 'M' + (sr * sc) + ',' + (sr * ss) +
+    'A' + sr + ',' + sr + ' 0 0,' + (sf ? 1 : 0) +
+    ' ' + (sr * tc) + ',' + (sr * ts) +
+    'L' + (tr * tc) + ',' + (tr * ts);
 }
 
 function diagonalX(sx, sy, tx, ty) {
   var m = (sx + tx) / 2;
   return 'M' + sx + ',' + sy +
-         'C' + m  + ',' + sy +
-         ' ' + m  + ',' + ty +
-         ' ' + tx + ',' + ty;
+    'C' + m + ',' + sy +
+    ' ' + m + ',' + ty +
+    ' ' + tx + ',' + ty;
 }
 
 function diagonalY(sx, sy, tx, ty) {
   var m = (sy + ty) / 2;
   return 'M' + sx + ',' + sy +
-         'C' + sx + ',' + m +
-         ' ' + tx + ',' + m +
-         ' ' + tx + ',' + ty;
+    'C' + sx + ',' + m +
+    ' ' + tx + ',' + m +
+    ' ' + tx + ',' + ty;
 }
 
 function diagonalR(sa, sr, ta, tr) {
   var sc = Math.cos(sa),
-      ss = Math.sin(sa),
-      tc = Math.cos(ta),
-      ts = Math.sin(ta),
-      mr = (sr + tr) / 2;
-  return 'M' + (sr*sc) + ',' + (sr*ss) +
-         'C' + (mr*sc) + ',' + (mr*ss) +
-         ' ' + (mr*tc) + ',' + (mr*ts) +
-         ' ' + (tr*tc) + ',' + (tr*ts);
+    ss = Math.sin(sa),
+    tc = Math.cos(ta),
+    ts = Math.sin(ta),
+    mr = (sr + tr) / 2;
+  return 'M' + (sr * sc) + ',' + (sr * ss) +
+    'C' + (mr * sc) + ',' + (mr * ss) +
+    ' ' + (mr * tc) + ',' + (mr * ts) +
+    ' ' + (tr * tc) + ',' + (tr * ts);
 }
 
 /**

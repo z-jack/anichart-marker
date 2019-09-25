@@ -23,7 +23,7 @@
     "eject": "react-scripts eject",
     "postinstall": "cd ./node_modules/charticulator/ && cp config.template.yml config.yml && yarn build && cd ../../",
     "refresh": "yarn upgrade charticulator && yarn postinstall",
-    "vega": "cp ../vega-marker-core/packages/vega/build/vega-module.js ./src/vega.js && sed -i '1i/* eslint-disable */' ./src/vega.js"
+    "vega": "cp ../vega-marker-core/packages/vega/build/vega-module.js ./src/vega.js && sed -i'.bak' '1i\\'$'\\n''/* eslint-disable */'$'\\n' ./src/vega.js && rm ./src/vega.js.bak"
   },
   "devDependencies": {
     "@types/chai": "^4.0.1",
