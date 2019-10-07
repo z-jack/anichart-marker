@@ -9299,7 +9299,11 @@ function markItemPath (type, shape, isect) {
 
   function attr(emit, item) {
     emit('transform', transformItem(item));
-    emit('d', shape(null, item));
+    if ((item.shape || 'circle') == 'circle') {
+      emit('r', Math.sqrt(item.size) / 2);
+    } else {
+      emit('d', shape(null, item));
+    }
     if (item.mark.role.startsWith('mark')) {
       emit('id', id$1.getMarkId(id$1.getMarkClass(item.mark)));
       emit('class', `mark ${id$1.getMarkClass(item.mark)} path`);
@@ -10379,7 +10383,6 @@ function cssClass(mark) {
     + (mark.role ? ' role-' + mark.role : '')
     + (mark.name ? ' ' + mark.name : '')
     + (mark.role != 'mark'? ' ' + mark.role : '')
-    + (mark.role.startsWith('axis-') || mark.role.startsWith('legend-') ? ' mark': '');
 }
 
 function point(event, el) {
@@ -19199,7 +19202,7 @@ prototype$O.mark = function (scene) {
   }, style);
 
   var forceId = false;
-  if (scene.role.startsWith('axis-') || scene.role.startsWith('legend-')) {
+  if (scene.role.startsWith('axis-') || (scene.role.startsWith('legend-') && scene.role !== 'legend-entry')) {
     forceId = scene.role;
   }
 
@@ -19209,7 +19212,12 @@ prototype$O.mark = function (scene) {
     if (href) str += openTag('a', href);
 
     style = (tag !== 'g') ? applyStyles(item, scene, tag, defs) : null;
-    str += openTag(tag, { id: forceId ? id$1.getMarkId(forceId) : '', ...renderer.attributes(mdef.attr, item) }, style);
+    var attrs = renderer.attributes(mdef.attr, item);
+    if (tag === 'path' && attrs.r !== undefined) {
+      str += openTag('circle', { id: forceId ? id$1.getMarkId(forceId) : '', class: forceId ? 'mark ' + forceId : '', 'data-datum': forceId ? `{"_TYPE":"${forceId}"}` : '', ...attrs }, style);
+    } else {
+      str += openTag(tag, { id: forceId ? id$1.getMarkId(forceId) : '', class: forceId ? 'mark ' + forceId : '', 'data-datum': forceId ? `{"_TYPE":"${forceId}"}` : '', ...attrs }, style);
+    }
 
     if (tag === 'text') {
       str += escape_text(textValue(item));
@@ -19222,7 +19230,11 @@ prototype$O.mark = function (scene) {
         + closeTag('g');
     }
 
-    str += closeTag(tag);
+    if (tag === 'path' && attrs.r !== undefined) {
+      str += closeTag('circle');
+    } else {
+      str += closeTag(tag);
+    }
     if (href) str += closeTag('a');
   }
 

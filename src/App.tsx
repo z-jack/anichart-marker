@@ -16,7 +16,7 @@ const App: React.FC = () => {
   const [mode, setMode] = React.useState<string | boolean>(false)
   const [dataColumns, setDataColumns] = React.useState<string[]>([])
   const [dataTable, _setDataTable] = React.useState<object[]>([])
-  const [svgHtml, setSvgHtml] = React.useState('')
+  const [svgHtml, _setSvgHtml] = React.useState('')
   const [resize, setResize] = React.useState(false)
   const [chartWidth, setWidth] = React.useState(500)
   const [chartHeight, setHeight] = React.useState(500)
@@ -48,6 +48,31 @@ const App: React.FC = () => {
   const setDataTable = (v: any) => {
     tryRenderTmplt(mode, json, v)
     _setDataTable(v)
+  }
+
+  const setSvgHtml = (v: any) => {
+    function outerStyle(node: any) {
+      if (!(node instanceof SVGElement || node instanceof HTMLElement)) return
+      let styles: string = node.getAttribute('style') || ''
+      let styleList = styles.split(';').filter(x => x.trim()).map(x => x.split(':'))
+      for (let style of styleList) {
+        node.setAttribute(style[0].trim(), style[1].trim())
+      }
+      node.setAttribute('style', '')
+      if (node.childNodes.length) {
+        node.childNodes.forEach((child: any) => outerStyle(child))
+      }
+      // remove empty attributes
+      for (let name of node.getAttributeNames()) {
+        if (!node.getAttribute(name).trim()) {
+          node.removeAttribute(name)
+        }
+      }
+    }
+    let tmpDiv = document.createElement('div')
+    tmpDiv.innerHTML = v
+    outerStyle(tmpDiv)
+    _setSvgHtml(tmpDiv.innerHTML)
   }
 
   useEffect(() => {
@@ -93,13 +118,13 @@ const App: React.FC = () => {
 
   const props = {
     name: 'file',
-    accept: '.chart,.tmplt,.csv',
+    accept: '.chart,.tmplt,.csv,.json',
     action: '/',
     showUploadList: false,
     beforeUpload(e: File) {
       let reader = new FileReader()
       reader.onload = () => {
-        if (e.name.endsWith('.chart') || e.name.endsWith('.tmplt')) {
+        if (e.name.endsWith('.chart') || e.name.endsWith('.tmplt') || e.name.endsWith('.json')) {
           try {
             setJson(JSON.parse(reader.result as string))
           } catch{ }
@@ -115,17 +140,17 @@ const App: React.FC = () => {
   };
 
   function download() {
-    var blob = new Blob([svgHtml], {type: 'text/plain'});
-    if(window.navigator.msSaveOrOpenBlob) {
-        window.navigator.msSaveBlob(blob, 'output.dsvg');
+    var blob = new Blob([svgHtml], { type: 'text/plain' });
+    if (window.navigator.msSaveOrOpenBlob) {
+      window.navigator.msSaveBlob(blob, 'output.dsvg');
     }
-    else{
-        var elem = window.document.createElement('a');
-        elem.href = window.URL.createObjectURL(blob);
-        elem.download = 'output.dsvg';        
-        document.body.appendChild(elem);
-        elem.click();        
-        document.body.removeChild(elem);
+    else {
+      var elem = window.document.createElement('a');
+      elem.href = window.URL.createObjectURL(blob);
+      elem.download = 'output.dsvg';
+      document.body.appendChild(elem);
+      elem.click();
+      document.body.removeChild(elem);
     }
   }
 
