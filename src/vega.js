@@ -9299,7 +9299,7 @@ function markItemPath (type, shape, isect) {
 
   function attr(emit, item) {
     emit('transform', transformItem(item));
-    if ((item.shape || 'circle') == 'circle') {
+    if ((item.shape || (item.size && 'circle')) == 'circle') {
       emit('r', Math.sqrt(item.size) / 2);
     } else {
       emit('d', shape(null, item));
@@ -10089,7 +10089,7 @@ function attr$5(emit, item) {
       _MARKID: id$1.getMarkClass(item.mark),
       _x: item.x,
       _y: item.y,
-      ...item.datum
+      ...((item.datum && item.datum.datum) || item.datum)
     }));
   }
 }

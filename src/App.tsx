@@ -1,6 +1,6 @@
 import { renderChartToLocalString } from 'charticulator/dist/scripts/app/views/canvas/chart_display'
 import { ChartStateManager } from 'charticulator/dist/scripts/core/prototypes/state'
-import { Button, Upload, Icon, Switch, InputNumber } from 'antd'
+import { Button, Upload, Icon, Switch, InputNumber, Select } from 'antd'
 import csv from 'csvtojson'
 import React, { useEffect } from 'react'
 import ace from 'brace'
@@ -16,11 +16,15 @@ const App: React.FC = () => {
   const [mode, setMode] = React.useState<string | boolean>(false)
   const [dataColumns, setDataColumns] = React.useState<string[]>([])
   const [dataTable, _setDataTable] = React.useState<object[]>([])
+  const [nodeTable, setNodeTable] = React.useState<object[]>([])
   const [svgHtml, _setSvgHtml] = React.useState('')
+  const [rawSvgHtml, _setRawSvgHtml] = React.useState('')
   const [resize, setResize] = React.useState(false)
   const [chartWidth, setWidth] = React.useState(500)
   const [chartHeight, setHeight] = React.useState(500)
+  const [boundingBox, setBoundingBox] = React.useState<number[][]>([])
   let editor: any = null
+  let fragment: DocumentFragment
   const editorRef = (i: any) => editor = i || editor
 
   const tryRenderTmplt = (m: (string | boolean), j: any, d: object[]) => {
@@ -45,9 +49,128 @@ const App: React.FC = () => {
     }
   }
 
+  const tryProcessSvg = (m: (string | boolean), s: string, d: object[]) => {
+    _setSvgHtml('')
+    if (m !== 'svg' || !d.length || !s.length)
+      return
+    const dataLength = d.length
+    fragment = document.createRange().createContextualFragment(s)
+    const fragChild = Array.prototype.slice.call(fragment.children) as HTMLElement[]
+    let dataNodes: HTMLElement[][] = []
+    fragChild.forEach(node => {
+      dataNodes = dataNodes.concat(findDomWithLength(node, dataLength))
+    })
+    let linkNodes: HTMLElement[][] = []
+    fragChild.forEach(node => {
+      linkNodes = linkNodes.concat(findDomWithLength(node, dataLength - 1))
+    });
+    [dataNodes, linkNodes].forEach(collections => {
+      collections.forEach(nodes => {
+        nodes.forEach(node => {
+          markGrayNodes(node, fragment)
+          node.id = 'Ref' + ~~(Math.random() * 1e8)
+        })
+      })
+    })
+    let unsetGroup: HTMLElement[] = []
+    fragChild.forEach(node => {
+      unsetGroup = unsetGroup.concat(findUnsetNodes(node))
+    })
+    unsetGroup = unsetGroup.filter(node =>
+      getLeafNodes(node).filter((x: HTMLElement) => x instanceof SVGGraphicsElement && !(x instanceof SVGGElement)).length
+    )
+    unsetGroup.forEach(node => node.id = 'Ref' + ~~(Math.random() * 1e8))
+    _setSvgHtml(fragChild.map(node => node.outerHTML).join(''))
+    setNodeTable([
+      ...dataNodes.map(d => {
+        return {
+          nodes: d,
+          isData: true,
+          mapping: 'data'
+        }
+      }),
+      ...linkNodes.map(d => {
+        return {
+          nodes: d,
+          isLink: true,
+          mapping: 'link'
+        }
+      }),
+      ...unsetGroup.map(d => {
+        return {
+          nodes: [d],
+          mapping: 'static'
+        }
+      }),
+    ])
+  }
+
+  const markGrayNodes = (dom: HTMLElement, root: DocumentFragment) => {
+    dom.dataset.gray = '1'
+    let parent = dom.parentNode
+    while (parent !== root) {
+      (parent as HTMLElement).dataset.gray = '1'
+      parent = parent.parentNode
+    }
+  }
+
+  const getLeafNodes = (master: HTMLElement) => {
+    // https://stackoverflow.com/questions/22289391/how-to-create-an-array-of-leaf-nodes-of-an-html-dom-using-javascript
+
+    var nodes = Array.prototype.slice.call(master.getElementsByTagName("*"), 0);
+    var leafNodes = nodes.filter(function (elem: HTMLElement) {
+      if (elem.hasChildNodes()) {
+        // see if any of the child nodes are elements
+        for (var i = 0; i < elem.childNodes.length; i++) {
+          if (elem.childNodes[i].nodeType == 1) {
+            // there is a child element, so return false to not include
+            // this parent element
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+    return leafNodes;
+  }
+
+  const findUnsetNodes = (dom: HTMLElement): HTMLElement[] => {
+    let result: HTMLElement[] = []
+    if (dom.children.length) {
+      Array.prototype.slice.call(dom.children).forEach((node: HTMLElement) => {
+        if (node.dataset.gray == '1') {
+          result = result.concat(findUnsetNodes(node))
+        } else {
+          result.push(node)
+        }
+      })
+    }
+    return result
+  }
+
+  const findDomWithLength = (dom: HTMLElement, length: number): HTMLElement[][] => {
+    const childNodes = Array.prototype.slice.call(dom.children) as HTMLElement[]
+    if (childNodes.length == length) {
+      return [childNodes]
+    }
+    if (childNodes.length) {
+      let result: HTMLElement[][] = []
+      childNodes.forEach(n => result = result.concat(findDomWithLength(n, length)))
+      return result
+    }
+    return []
+  }
+
   const setDataTable = (v: any) => {
     tryRenderTmplt(mode, json, v)
+    tryProcessSvg(mode, rawSvgHtml, v)
     _setDataTable(v)
+  }
+
+  const setRawSvgHtml = (v: string) => {
+    tryProcessSvg('svg', v, dataTable)
+    _setRawSvgHtml(v)
+    setMode('svg')
   }
 
   const setSvgHtml = (v: any) => {
@@ -118,7 +241,7 @@ const App: React.FC = () => {
 
   const props = {
     name: 'file',
-    accept: '.chart,.tmplt,.csv,.json',
+    accept: '.chart,.tmplt,.csv,.json,.svg',
     action: '/',
     showUploadList: false,
     beforeUpload(e: File) {
@@ -132,6 +255,10 @@ const App: React.FC = () => {
           csv({
             checkType: true
           }).fromString(reader.result as string).on('header', e => setDataColumns(e)).then(e => setDataTable(e))
+        } else if (e.name.endsWith('.svg')) {
+          try {
+            setRawSvgHtml(reader.result as string)
+          } catch{ }
         }
       }
       reader.readAsText(e)
@@ -154,6 +281,28 @@ const App: React.FC = () => {
     }
   }
 
+  function drawBoundingBox(domList: HTMLElement[]) {
+    const res: number[][] = []
+    domList.forEach(dom => {
+      dom = document.getElementById(dom.id)
+      const leaves = getLeafNodes(dom)
+      if (leaves.length) {
+        leaves.forEach((dom: HTMLElement) => {
+          if (dom) {
+            const boundingBox = dom.getBoundingClientRect()
+            res.push([boundingBox.left - 10, boundingBox.top - 10, boundingBox.width + 20, boundingBox.height + 20])
+          }
+        })
+      } else {
+        if (dom) {
+          const boundingBox = dom.getBoundingClientRect()
+          res.push([boundingBox.left - 10, boundingBox.top - 10, boundingBox.width + 20, boundingBox.height + 20])
+        }
+      }
+    })
+    setBoundingBox(res)
+  }
+
   return (
     <div id="app">
       <div>
@@ -163,34 +312,97 @@ const App: React.FC = () => {
           </p>
           <p className="ant-upload-text">Click or drag file here to read</p>
         </Dragger>
-        <div className="json-editor">
-          <JsonEditor ref={editorRef} mode='code' allowedModes={['code', 'tree']} ace={ace} value={json} onChange={editorSetJson}></JsonEditor>
-        </div>
         {
-          mode !== 'chart' && mode !== 'vega' &&
-          <div className="dataset">
-            {
-              dataColumns.length ?
-                <table>
-                  <thead>
-                    <tr>
-                      {dataColumns.map(key => <th>{key}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {dataTable.map((row: any) => <tr>{dataColumns.map(key => <td>{row[key]}</td>)}</tr>)}
-                  </tbody>
-                </table>
-                :
-                <p className="hint">No dataset loaded.</p>
-            }
-          </div>
+          mode !== 'svg' ? (
+            <>
+              <div className="json-editor">
+                <JsonEditor ref={editorRef} mode='code' allowedModes={['code', 'tree']} ace={ace} value={json} onChange={editorSetJson}></JsonEditor>
+              </div>
+              {
+                mode !== 'chart' && mode !== 'vega' &&
+                <div className="dataset">
+                  {
+                    dataColumns.length ?
+                      <table>
+                        <thead>
+                          <tr>
+                            {dataColumns.map(key => <th>{key}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dataTable.map((row: any) => <tr>{dataColumns.map(key => <td>{row[key]}</td>)}</tr>)}
+                        </tbody>
+                      </table>
+                      :
+                      <p className="hint">No dataset loaded.</p>
+                  }
+                </div>
+              }
+            </>
+          ) : (
+              <>
+                <div className="dataset" style={{ flexGrow: 1, maxHeight: 'initial' }}>
+                  {
+                    nodeTable.length ?
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Nodes</th>
+                            <th>Mapping</th>
+                            <th>Preview</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {nodeTable.map((row: any) =>
+                            <tr>
+                              <td>{row.nodes.length} Groups</td>
+                              <td>{
+                                <Select value={row.mapping} onChange={(v: string) => { row.mapping = v; setNodeTable(nodeTable) }}>
+                                  {row.isData && <Select.Option value="data">data</Select.Option>}
+                                  {row.isLink && <Select.Option value="link">link</Select.Option>}
+                                  <Select.Option value="axis">axis</Select.Option>
+                                  <Select.Option value="legend">legend</Select.Option>
+                                  <Select.Option value="static">static</Select.Option>
+                                </Select>
+                              }</td>
+                              <td>
+                                <div onMouseEnter={drawBoundingBox.bind(null, row.nodes)} onMouseLeave={setBoundingBox.bind(null, [])}>
+                                  <Icon type="eye" className="preview"></Icon>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                      :
+                      <p className="hint">No data mappings available.</p>
+                  }
+                </div>
+                <div className="dataset">
+                  {
+                    dataColumns.length ?
+                      <table>
+                        <thead>
+                          <tr>
+                            {dataColumns.map(key => <th>{key}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dataTable.map((row: any) => <tr>{dataColumns.map(key => <td>{row[key]}</td>)}</tr>)}
+                        </tbody>
+                      </table>
+                      :
+                      <p className="hint">No dataset loaded.</p>
+                  }
+                </div>
+              </>
+            )
         }
       </div>
       <div>
         <Button disabled={!svgHtml} type="primary" icon="download" onClick={download}>Download</Button>
         {
-          mode !== 'vega' &&
+          mode !== 'vega' && mode !== 'svg' &&
           <div>
             <Switch onChange={setResize} />
             <span>Resize Chart to</span>
@@ -199,7 +411,13 @@ const App: React.FC = () => {
             <InputNumber defaultValue={500} onChange={setHeight} size="small" />
           </div>
         }
-        <div className="svg-container" dangerouslySetInnerHTML={{ __html: svgHtml }}></div>
+        <div className="svg-container" dangerouslySetInnerHTML={{ __html: svgHtml || rawSvgHtml }}></div>
+      </div>
+      <div className="bounding-box-container">
+        {
+          boundingBox.map(boundingBox =>
+            <div className="bounding-box" style={{ left: boundingBox[0], top: boundingBox[1], width: boundingBox[2], height: boundingBox[3] }}></div>
+          )}
       </div>
     </div>
   );
